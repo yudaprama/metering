@@ -1,0 +1,53 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    # triggers on tag push as well if manual tag created
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.4
+
+      - name: Build Linux binary
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -o dist/metering-linux-amd64 ./...
+
+      - name: Build macOS binary
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o dist/metering-darwin-amd64 ./...
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{github.run_number}}
+          name: Release v${{github.run_number}}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/metering-linux-amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/metering-darwin-amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
