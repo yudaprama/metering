@@ -47,6 +47,7 @@ jobs:
       - name: Upload Linux binary
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{github.run_number}}
           files: dist/metering-linux-amd64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,6 +55,7 @@ jobs:
       - name: Upload macOS binary
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{github.run_number}}
           files: dist/metering-darwin-amd64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
