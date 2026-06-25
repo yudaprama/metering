@@ -5,6 +5,9 @@ on:
     branches: [main]
     # triggers on tag push as well if manual tag created
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
