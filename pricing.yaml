@@ -5,10 +5,17 @@
 # full input rate. This is the source of truth for pricing now that the brightstaff
 # `billing:` block is dead (Phase 3).
 #
-# Resolution order (see pricing.go::loadPricingConfig):
-#   1. METERING_PRICING_CONFIG env -> this file (or any path you point it at)
-#   2. plano_config.yaml `billing:` block (default_pricing + per-model pricing)
-#   3. the built-in defaults below (input 5 / output 15 / cache_discount 0.5)
+# Resolution order (see pricing.go::PricingFor):
+#   1. exact per-model override in `models:` below (always wins)
+#   2. ":free" suffix -> 0 credits (OpenRouter free-tier models are free to run)
+#   3. plano_config.yaml `billing:` block (default_pricing + per-model pricing)
+#   4. the built-in defaults below (input 5 / output 15 / cache_discount 0.5)
+#
+# Note: the `:free` suffix rule is hardcoded in pricing.go::PricingFor and applies
+# even when this file is NOT loaded (it is not a config knob). The entries under
+# `models:` below are documentation/defense-in-depth — the suffix rule already
+# covers every `<provider>/<model>:free` slug regardless of how the upstream
+# resolves the name (brightstaff overrides `llm.model` with `resolved_model`).
 #
 # Per-model overrides may set only some fields; omitted fields inherit from
 # `default` below.
@@ -19,6 +26,16 @@ default:
   cache_discount: 0.5
 
 models:
+  # Free-tier models (OpenRouter `:free` suffix). Priced at 0 in pricing.go via
+  # the suffix rule; listed here for discoverability. Set non-zero values to
+  # override the suffix rule for a specific slug.
+  nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free:
+    input_per_million: 0.0
+    output_per_million: 0.0
+  openai/gpt-oss-120b:free:
+    input_per_million: 0.0
+    output_per_million: 0.0
+
   # Examples (uncomment / edit to override per model):
   # gpt-4o:
   #   input_per_million: 2.5

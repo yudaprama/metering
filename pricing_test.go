@@ -31,6 +31,47 @@ func TestPricingFor(t *testing.T) {
 	}
 }
 
+func TestPricingForFreeSuffix(t *testing.T) {
+	cfg := PricingConfig{
+		Default: ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5},
+	}
+	cases := []string{
+		"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+		"openai/gpt-oss-120b:free",
+		"meta-llama/llama-3.1-8b-instruct:free",
+		":free", // degenerate but still a free suffix
+	}
+	for _, m := range cases {
+		got := cfg.PricingFor(m)
+		if got.InputPerMillion != 0 || got.OutputPerMillion != 0 {
+			t.Errorf("%s: expected zero pricing for :free model, got %+v", m, got)
+		}
+		// A free model must produce zero cost.
+		if c := got.CostMicros(Usage{PromptTokens: 1_000_000, CompletionTokens: 1_000_000}); c != 0 {
+			t.Errorf("%s: expected 0 cost_micros, got %d", m, c)
+		}
+	}
+	// A non-free model with a ":free"-like substring but not a suffix is billed.
+	if got := cfg.PricingFor("some:freedom-7b"); got.InputPerMillion != 5.0 {
+		t.Errorf("non-suffix model should fall back to default, got %+v", got)
+	}
+}
+
+func TestPricingForExplicitOverrideBeatsFreeSuffix(t *testing.T) {
+	// An explicit override on a :free slug wins over the suffix rule, allowing a
+	// paid override if ever needed.
+	cfg := PricingConfig{
+		Default: ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5},
+		Models: map[string]ModelPricing{
+			"openai/gpt-oss-120b:free": {InputPerMillion: 1.0, OutputPerMillion: 2.0},
+		},
+	}
+	got := cfg.PricingFor("openai/gpt-oss-120b:free")
+	if got.InputPerMillion != 1.0 || got.OutputPerMillion != 2.0 {
+		t.Errorf("explicit override should beat :free suffix, got %+v", got)
+	}
+}
+
 func TestCostMicros(t *testing.T) {
 	in := ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5}
 

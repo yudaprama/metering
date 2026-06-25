@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -34,10 +35,18 @@ func defaultPricingConfig() PricingConfig {
 }
 
 // PricingFor returns the pricing for a model, falling back to Default when the
-// model has no explicit override.
+// model has no explicit override. Resolution order:
+//  1. exact match in Models (explicit per-model override wins)
+//  2. ":free" suffix -> zero pricing (OpenRouter free-tier models cost nothing
+//     to run; covers all `<provider>/<model>:free` slugs regardless of how the
+//     upstream resolves the name)
+//  3. Default
 func (c PricingConfig) PricingFor(model string) ModelPricing {
 	if p, ok := c.Models[model]; ok {
 		return p
+	}
+	if strings.HasSuffix(model, ":free") {
+		return ModelPricing{}
 	}
 	return c.Default
 }
