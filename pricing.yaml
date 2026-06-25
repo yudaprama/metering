@@ -1,0 +1,30 @@
+# Metering pricing configuration (PLANO_AUTH_TO_ORY_PLAN.md Phase 6 / M3).
+#
+# Prices are credits per 1_000_000 tokens. `cache_discount` is a factor in
+# [0,1]: 0.0 = cached input tokens are free, 1.0 = cached tokens charged at the
+# full input rate. This is the source of truth for pricing now that the brightstaff
+# `billing:` block is dead (Phase 3).
+#
+# Resolution order (see pricing.go::loadPricingConfig):
+#   1. METERING_PRICING_CONFIG env -> this file (or any path you point it at)
+#   2. plano_config.yaml `billing:` block (default_pricing + per-model pricing)
+#   3. the built-in defaults below (input 5 / output 15 / cache_discount 0.5)
+#
+# Per-model overrides may set only some fields; omitted fields inherit from
+# `default` below.
+
+default:
+  input_per_million: 5.0
+  output_per_million: 15.0
+  cache_discount: 0.5
+
+models:
+  # Examples (uncomment / edit to override per model):
+  # gpt-4o:
+  #   input_per_million: 2.5
+  #   output_per_million: 10.0
+  #   cache_discount: 0.5
+  # claude-3-5-sonnet:
+  #   input_per_million: 3.0
+  #   output_per_million: 15.0
+  #   cache_discount: 0.1   # Anthropic prompt-cache reads are ~10% of input
