@@ -133,6 +133,33 @@ func TestExtractEventTotalOnlyFallback(t *testing.T) {
 	}
 }
 
+func TestSpanLeak(t *testing.T) {
+	// No actor_id => ordinary non-billing span, not a leak.
+	if _, leak := spanLeak(billableSpan("", "gpt-4", 0, 0, 0, 0)); leak {
+		t.Error("span without actor_id must not be a leak")
+	}
+	// Fully billable => extractEvent would handle it; not a leak.
+	if _, leak := spanLeak(billableSpan("a", "gpt-4", 10, 5, 15, 0)); leak {
+		t.Error("billable span must not be a leak")
+	}
+	// actor_id but no model => leak (missing_model).
+	info, leak := spanLeak(billableSpan("a", "", 10, 5, 15, 0))
+	if !leak || info.Reason != "missing_model" || info.ActorID != "a" {
+		t.Errorf("missing-model leak wrong: %+v leak=%v", info, leak)
+	}
+	// actor_id + model but no tokens => leak (missing_tokens) — the non-stream quirk.
+	noTokens := &tracev1.Span{
+		Attributes: []*commonv1.KeyValue{
+			kv(attrActorID, strVal("a")),
+			kv(attrModel, strVal("gpt-4")),
+		},
+	}
+	info, leak = spanLeak(noTokens)
+	if !leak || info.Reason != "missing_tokens" || info.Model != "gpt-4" {
+		t.Errorf("missing-tokens leak wrong: %+v leak=%v", info, leak)
+	}
+}
+
 func TestExtractEventClampsCachedToPrompt(t *testing.T) {
 	span := billableSpan("actor", "gpt-4", 50, 0, 50, 999) // cached > prompt
 	ev, ok := extractEvent(span)

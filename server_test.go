@@ -136,6 +136,54 @@ func TestExportDedupsCounted(t *testing.T) {
 	}
 }
 
+func TestExportCountsRevenueLeak(t *testing.T) {
+	// A span with actor_id + model but NO token attributes (the non-stream parse
+	// quirk): brightstaff intended to bill it (actor stamped) but usage never
+	// reached the span. Talos must NOT be called; the leak must be counted.
+	talosCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		talosCalled = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"balanceRemaining":0,"balanceQuota":0,"accepted":true}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
+	s := newMeteringServer(defaultPricingConfig(), talos, discardLogger())
+
+	leakSpan := &tracev1.Span{
+		TraceId: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanId:  []byte{40, 41, 42, 43, 44, 45, 46, 47},
+		Attributes: []*commonv1.KeyValue{
+			kv(attrActorID, strVal("actor-leak")),
+			kv(attrModel, strVal("gpt-4")),
+		},
+	}
+	// A genuinely non-billing span (no actor_id) must NOT count as a leak.
+	routingSpan := &tracev1.Span{
+		TraceId:    []byte{2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanId:     []byte{50, 51, 52, 53, 54, 55, 56, 57},
+		Attributes: []*commonv1.KeyValue{kv(attrModel, strVal("gpt-4"))},
+	}
+
+	if _, err := s.Export(context.Background(), makeReq(leakSpan, routingSpan)); err != nil {
+		t.Fatalf("Export error: %v", err)
+	}
+	snap := s.Snapshot()
+	if snap.SpansSkipped != 2 {
+		t.Errorf("SpansSkipped: got %d want 2", snap.SpansSkipped)
+	}
+	if snap.RevenueLeaks != 1 {
+		t.Errorf("RevenueLeaks: got %d want 1 (only the actor-carrying span leaks)", snap.RevenueLeaks)
+	}
+	if snap.SpansBilled != 0 {
+		t.Errorf("SpansBilled: got %d want 0", snap.SpansBilled)
+	}
+	if talosCalled {
+		t.Error("Talos must not be called for a leaked (unbillable) span")
+	}
+}
+
 func TestExportEmptyRequest(t *testing.T) {
 	talos := &TalosIngestClient{BaseURL: "http://127.0.0.1:0", HTTP: &http.Client{}}
 	s := newMeteringServer(defaultPricingConfig(), talos, discardLogger())

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"log/slog"
 	"sync/atomic"
 
@@ -24,6 +25,7 @@ type meteringServer struct {
 	spansSkipped atomic.Int64
 	debitErrors  atomic.Int64
 	dedups       atomic.Int64
+	revenueLeaks atomic.Int64 // skipped spans that carried an actor_id (escaped billing)
 }
 
 func newMeteringServer(pricing PricingConfig, talos *TalosIngestClient, log *slog.Logger) *meteringServer {
@@ -60,6 +62,19 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 	ev, ok := extractEvent(span)
 	if !ok {
 		s.spansSkipped.Add(1)
+		// A skipped span that still carries billing.actor_id is a billable LLM
+		// call that escaped metering — the provider was paid but the actor's
+		// quota is not debited (revenue leak + gate bypass). Surface it loudly so
+		// it can be alerted on (Alloy ships these WARN logs to Loki/Grafana),
+		// rather than letting it disappear into the generic skip counter.
+		if leak, isLeak := spanLeak(span); isLeak {
+			s.revenueLeaks.Add(1)
+			s.log.Warn("billable span could not be metered (revenue leak)",
+				"reason", leak.Reason,
+				"actor_id", leak.ActorID, "model", leak.Model,
+				"trace_id", hex.EncodeToString(span.GetTraceId()),
+				"span_id", hex.EncodeToString(span.GetSpanId()))
+		}
 		return
 	}
 
@@ -105,6 +120,10 @@ type MetricsSnapshot struct {
 	SpansSkipped int64 `json:"spans_skipped"`
 	DebitErrors  int64 `json:"debit_errors"`
 	Dedups       int64 `json:"dedups"`
+	// RevenueLeaks counts skipped spans that carried a billing.actor_id — LLM
+	// calls that escaped metering (provider paid, quota not debited). A non-zero
+	// value here means the balance gate is being bypassed; alert on its rate.
+	RevenueLeaks int64 `json:"revenue_leaks"`
 }
 
 func (s *meteringServer) Snapshot() MetricsSnapshot {
@@ -114,5 +133,6 @@ func (s *meteringServer) Snapshot() MetricsSnapshot {
 		SpansSkipped: s.spansSkipped.Load(),
 		DebitErrors:  s.debitErrors.Load(),
 		Dedups:       s.dedups.Load(),
+		RevenueLeaks: s.revenueLeaks.Load(),
 	}
 }

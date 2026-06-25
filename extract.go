@@ -85,6 +85,37 @@ func extractEvent(span *tracev1.Span) (UsageEvent, bool) {
 	}, true
 }
 
+// leakInfo describes a billable-looking span that could not be metered.
+type leakInfo struct {
+	Reason  string // "missing_model" | "missing_tokens"
+	ActorID string
+	Model   string
+}
+
+// spanLeak classifies a span that extractEvent rejected. A span carrying a
+// billing.actor_id is one brightstaff intended to bill (the auth edge injected
+// the actor) — so if it is NOT billable, the underlying LLM call escaped
+// metering: the provider was paid but the actor's quota is never debited. That
+// is a revenue leak (and a gate-bypass, since the balance never moves). Spans
+// without an actor_id are ordinary non-billing spans (routing, classification)
+// and return leak=false. The known trigger is the non-stream llm_gateway parse
+// quirk: actor_id + model are stamped but usage tokens never reach the span.
+func spanLeak(span *tracev1.Span) (leakInfo, bool) {
+	attrs := indexAttrs(span.GetAttributes())
+	actor := attrs.str(attrActorID)
+	if actor == "" {
+		return leakInfo{}, false // not billable, not a leak
+	}
+	model := attrs.str(attrModel)
+	if model == "" {
+		return leakInfo{Reason: "missing_model", ActorID: actor}, true
+	}
+	if attrs.int(attrPromptTokens) == 0 && attrs.int(attrCompletionTokens) == 0 && attrs.int(attrTotalTokens) == 0 {
+		return leakInfo{Reason: "missing_tokens", ActorID: actor, Model: model}, true
+	}
+	return leakInfo{}, false
+}
+
 // requestID derives a stable, <=36-char idempotency key from the trace + span
 // ids. brightstaff's LLM span carries no native request_id, and OTLP spans are
 // immutable per LLM call, so (trace_id, span_id) uniquely identifies the billed
