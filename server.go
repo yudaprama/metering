@@ -82,12 +82,20 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 	costMicros := pricing.CostMicros(ev.Usage)
 	usageAmount := ev.Usage.PromptTokens + ev.Usage.CompletionTokens
 
+	// Record the client-facing alias (e.g. kawai-pro-max) in the ledger when the
+	// span carries one; pricing above still keys off the real resolved backend
+	// model (ev.Model). The real model stays available on the trace span.
+	ledgerModel := ev.Model
+	if ev.ModelAlias != "" {
+		ledgerModel = ev.ModelAlias
+	}
+
 	res, err := s.talos.Ingest(ctx, ingestRequest{
 		ActorID:     ev.ActorID,
 		UsageType:   usageTypeTokens,
 		UsageAmount: usageAmount,
 		CostMicros:  costMicros,
-		Model:       ev.Model,
+		Model:       ledgerModel,
 		RequestID:   ev.RequestID,
 	})
 	if err != nil {
@@ -103,7 +111,7 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 		s.dedups.Add(1)
 	}
 	s.log.Info("billed usage",
-		"actor_id", ev.ActorID, "model", ev.Model,
+		"actor_id", ev.ActorID, "model", ledgerModel, "resolved_model", ev.Model,
 		"prompt", ev.Usage.PromptTokens, "completion", ev.Usage.CompletionTokens,
 		"cached", ev.Usage.CachedInputTokens,
 		"usage_amount", usageAmount, "cost_micros", costMicros,

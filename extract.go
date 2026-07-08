@@ -12,6 +12,7 @@ import (
 // (tracing::llm::* and tracing::billing::ACTOR_ID).
 const (
 	attrActorID          = "billing.actor_id"
+	attrModelAlias       = "billing.model_alias"
 	attrModel            = "llm.model"
 	attrPromptTokens     = "llm.usage.prompt_tokens"
 	attrCompletionTokens = "llm.usage.completion_tokens"
@@ -25,7 +26,11 @@ type UsageEvent struct {
 	SpanID  string
 	ActorID string
 	Model   string
-	Usage   Usage
+	// ModelAlias is the client-requested brand alias (e.g. kawai-pro-max) when the
+	// span carries `billing.model_alias`; empty for raw-model requests. Used as the
+	// ledger's display model — pricing still keys off Model (the resolved backend).
+	ModelAlias string
+	Usage      Usage
 	// RequestID is the stable idempotency key for Talos AdminIngestUsage.
 	RequestID string
 }
@@ -72,10 +77,11 @@ func extractEvent(span *tracev1.Span) (UsageEvent, bool) {
 	spanHex := hex.EncodeToString(span.GetSpanId())
 
 	return UsageEvent{
-		TraceID: traceHex,
-		SpanID:  spanHex,
-		ActorID: actor,
-		Model:   model,
+		TraceID:    traceHex,
+		SpanID:     spanHex,
+		ActorID:    actor,
+		Model:      model,
+		ModelAlias: attrs.str(attrModelAlias),
 		Usage: Usage{
 			PromptTokens:      prompt,
 			CompletionTokens:  completion,
