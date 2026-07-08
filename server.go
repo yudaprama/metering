@@ -97,6 +97,7 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 		CostMicros:  costMicros,
 		Model:       ledgerModel,
 		RequestID:   ev.RequestID,
+		SessionID:   ev.SessionID,
 	})
 	if err != nil {
 		s.debitErrors.Add(1)

@@ -53,6 +53,7 @@ type ingestRequest struct {
 	CostMicros  int64  `json:"costMicros"`
 	Model       string `json:"model"`
 	RequestID   string `json:"requestId"`
+	SessionID   string `json:"sessionId,omitempty"`
 }
 
 // ingestResponse is the protojson (camelCase) body for IngestUsageResponse.

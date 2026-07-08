@@ -13,6 +13,7 @@ import (
 const (
 	attrActorID          = "billing.actor_id"
 	attrModelAlias       = "billing.model_alias"
+	attrSessionID        = "plano.session_id"
 	attrModel            = "llm.model"
 	attrPromptTokens     = "llm.usage.prompt_tokens"
 	attrCompletionTokens = "llm.usage.completion_tokens"
@@ -30,7 +31,10 @@ type UsageEvent struct {
 	// span carries `billing.model_alias`; empty for raw-model requests. Used as the
 	// ledger's display model — pricing still keys off Model (the resolved backend).
 	ModelAlias string
-	Usage      Usage
+	// SessionID is the chat/session id (from `plano.session_id`, propagated via the
+	// x-model-affinity header) when present; enables per-session usage attribution.
+	SessionID string
+	Usage     Usage
 	// RequestID is the stable idempotency key for Talos AdminIngestUsage.
 	RequestID string
 }
@@ -82,6 +86,7 @@ func extractEvent(span *tracev1.Span) (UsageEvent, bool) {
 		ActorID:    actor,
 		Model:      model,
 		ModelAlias: attrs.str(attrModelAlias),
+		SessionID:  attrs.str(attrSessionID),
 		Usage: Usage{
 			PromptTokens:      prompt,
 			CompletionTokens:  completion,
