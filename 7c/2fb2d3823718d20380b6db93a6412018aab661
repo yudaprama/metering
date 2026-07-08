@@ -1,0 +1,25 @@
+server.go
+  s_eeccb9f27ffaf4::t_2f405ebe4b776a 100
+talos.go
+  s_eeccb9f27ffaf4::t_964ee227d1928e 56
+extract.go
+  s_eeccb9f27ffaf4::t_1a69aab6c3f8d5 89
+  s_eeccb9f27ffaf4::t_a085cb1fb40ff3 16
+  s_eeccb9f27ffaf4::t_ad69e8ecd5f172 34-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7c2fb2d3823718d20380b6db93a6412018aab661",
+  "prompts": {},
+  "sessions": {
+    "s_eeccb9f27ffaf4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e12366f4-a90c-49f4-96b0-3f9a0b3a33e2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
