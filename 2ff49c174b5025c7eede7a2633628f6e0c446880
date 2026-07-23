@@ -1,0 +1,24 @@
+extract.go
+  s_eeccb9f27ffaf4::t_6f06e186fecb27 15
+  s_eeccb9f27ffaf4::t_75ba4363defb30 80-84
+  s_eeccb9f27ffaf4::t_cac52f4ac85091 29-33
+server.go
+  s_eeccb9f27ffaf4::t_41c52a7b3be9df 114
+  s_eeccb9f27ffaf4::t_132e6dcf0064c9 85-92,98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2ff49c174b5025c7eede7a2633628f6e0c446880",
+  "prompts": {},
+  "sessions": {
+    "s_eeccb9f27ffaf4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e12366f4-a90c-49f4-96b0-3f9a0b3a33e2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
