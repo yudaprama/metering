@@ -1,0 +1,29 @@
+main.go
+  s_c840ac3d4ebfc6::t_bb81fc2c53f196 66-68
+enqueue.go
+  s_c840ac3d4ebfc6::t_116baa08b190c6 1-70
+server.go
+  s_c840ac3d4ebfc6::t_f48392cde34443 19-22,24-30,33-34
+  s_c840ac3d4ebfc6::t_b31addcb97c08c 143-148,157-163
+  s_c840ac3d4ebfc6::t_b7e814f7dfeb84 106-119
+server_test.go
+  s_c840ac3d4ebfc6::t_3a29bcb83f9666 46,99,122,152,189
+server_grpc_test.go
+  s_c840ac3d4ebfc6::t_cfcd3031989e4f 37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e2695320dfba673c727c202ae0f6cfd8c043ad7d",
+  "prompts": {},
+  "sessions": {
+    "s_c840ac3d4ebfc6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_077f9b093ffejiR7C9RyO6kC3U",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
