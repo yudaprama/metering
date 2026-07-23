@@ -34,7 +34,7 @@ func TestExportOverGRPCWire(t *testing.T) {
 
 	pricing := PricingConfig{Default: ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5}}
 	talos := &TalosIngestClient{BaseURL: talosStub.URL, HTTP: talosStub.Client()}
-	srv := newMeteringServer(pricing, talos, discardLogger())
+	srv := newMeteringServer(pricing, talos, newDebitEnqueuer(discardLogger()), discardLogger())
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

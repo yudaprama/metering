@@ -16,20 +16,22 @@ import (
 type meteringServer struct {
 	otlpcollectortrace.UnimplementedTraceServiceServer
 
-	pricing PricingConfig
-	talos   *TalosIngestClient
-	log     *slog.Logger
+	pricing   PricingConfig
+	talos     *TalosIngestClient
+	enqueuer  *debitEnqueuer
+	log       *slog.Logger
 
-	spansSeen    atomic.Int64
-	spansBilled  atomic.Int64
-	spansSkipped atomic.Int64
-	debitErrors  atomic.Int64
-	dedups       atomic.Int64
-	revenueLeaks atomic.Int64 // skipped spans that carried an actor_id (escaped billing)
+	spansSeen       atomic.Int64
+	spansBilled     atomic.Int64
+	spansSkipped    atomic.Int64
+	debitErrors     atomic.Int64
+	dedups          atomic.Int64
+	retriesEnqueued atomic.Int64
+	revenueLeaks    atomic.Int64 // skipped spans that carried an actor_id (escaped billing)
 }
 
-func newMeteringServer(pricing PricingConfig, talos *TalosIngestClient, log *slog.Logger) *meteringServer {
-	return &meteringServer{pricing: pricing, talos: talos, log: log}
+func newMeteringServer(pricing PricingConfig, talos *TalosIngestClient, enqueuer *debitEnqueuer, log *slog.Logger) *meteringServer {
+	return &meteringServer{pricing: pricing, talos: talos, enqueuer: enqueuer, log: log}
 }
 
 // Export is the OTLP/gRPC trace export RPC. Alloy calls it with batches of
@@ -101,6 +103,20 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 	})
 	if err != nil {
 		s.debitErrors.Add(1)
+		// Hand the failed debit to hatchet-workers for durable retry instead of
+		// leaking it. Talos is idempotent on requestId, so retries are safe.
+		if s.enqueuer != nil {
+			s.enqueuer.enqueueDebit(ingestRequest{
+				ActorID:     ev.ActorID,
+				UsageType:   usageTypeTokens,
+				UsageAmount: usageAmount,
+				CostMicros:  costMicros,
+				Model:       ledgerModel,
+				RequestID:   ev.RequestID,
+				SessionID:   ev.SessionID,
+			})
+			s.retriesEnqueued.Add(1)
+		}
 		s.log.Error("debit failed",
 			"actor_id", ev.ActorID, "model", ev.Model,
 			"trace_id", ev.TraceID, "span_id", ev.SpanID,
@@ -124,11 +140,12 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 // MetricsSnapshot is a point-in-time copy of the counters, surfaced on the
 // /healthz endpoint for observability.
 type MetricsSnapshot struct {
-	SpansSeen    int64 `json:"spans_seen"`
-	SpansBilled  int64 `json:"spans_billed"`
-	SpansSkipped int64 `json:"spans_skipped"`
-	DebitErrors  int64 `json:"debit_errors"`
-	Dedups       int64 `json:"dedups"`
+	SpansSeen       int64 `json:"spans_seen"`
+	SpansBilled     int64 `json:"spans_billed"`
+	SpansSkipped    int64 `json:"spans_skipped"`
+	DebitErrors     int64 `json:"debit_errors"`
+	Dedups          int64 `json:"dedups"`
+	RetriesEnqueued int64 `json:"retries_enqueued"`
 	// RevenueLeaks counts skipped spans that carried a billing.actor_id — LLM
 	// calls that escaped metering (provider paid, quota not debited). A non-zero
 	// value here means the balance gate is being bypassed; alert on its rate.
@@ -137,11 +154,12 @@ type MetricsSnapshot struct {
 
 func (s *meteringServer) Snapshot() MetricsSnapshot {
 	return MetricsSnapshot{
-		SpansSeen:    s.spansSeen.Load(),
-		SpansBilled:  s.spansBilled.Load(),
-		SpansSkipped: s.spansSkipped.Load(),
-		DebitErrors:  s.debitErrors.Load(),
-		Dedups:       s.dedups.Load(),
-		RevenueLeaks: s.revenueLeaks.Load(),
+		SpansSeen:       s.spansSeen.Load(),
+		SpansBilled:     s.spansBilled.Load(),
+		SpansSkipped:    s.spansSkipped.Load(),
+		DebitErrors:     s.debitErrors.Load(),
+		Dedups:          s.dedups.Load(),
+		RetriesEnqueued: s.retriesEnqueued.Load(),
+		RevenueLeaks:    s.revenueLeaks.Load(),
 	}
 }

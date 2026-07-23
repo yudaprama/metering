@@ -63,7 +63,9 @@ func main() {
 	talos := NewTalosIngestClient()
 	log.Info("talos ingest target", "url", talos.BaseURL+talosIngestPath, "auth", talos.AdminToken != "")
 
-	srv := newMeteringServer(pricing, talos, log)
+	enqueuer := newDebitEnqueuer(log)
+
+	srv := newMeteringServer(pricing, talos, enqueuer, log)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

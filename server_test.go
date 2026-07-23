@@ -43,7 +43,7 @@ func TestExportBillsBillableSpanOnly(t *testing.T) {
 
 	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
 	pricing := PricingConfig{Default: ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5}}
-	s := newMeteringServer(pricing, talos, discardLogger())
+	s := newMeteringServer(pricing, talos, newDebitEnqueuer(discardLogger()), discardLogger())
 
 	billable := billableSpan("actor-1", "gpt-4", 1_000_000, 1_000_000, 2_000_000, 0)
 	// Non-billable: no actor_id.
@@ -96,7 +96,7 @@ func TestExportNeverErrorsOnDebitFailure(t *testing.T) {
 
 	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
 	pricing := defaultPricingConfig()
-	s := newMeteringServer(pricing, talos, discardLogger())
+	s := newMeteringServer(pricing, talos, newDebitEnqueuer(discardLogger()), discardLogger())
 
 	_, err := s.Export(context.Background(), makeReq(billableSpan("a", "m", 10, 5, 15, 0)))
 	if err != nil {
@@ -119,7 +119,7 @@ func TestExportDedupsCounted(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
-	s := newMeteringServer(defaultPricingConfig(), talos, discardLogger())
+	s := newMeteringServer(defaultPricingConfig(), talos, newDebitEnqueuer(discardLogger()), discardLogger())
 
 	_, err := s.Export(context.Background(), makeReq(billableSpan("a", "m", 10, 5, 15, 0)))
 	if err != nil {
@@ -149,7 +149,7 @@ func TestExportCountsRevenueLeak(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
-	s := newMeteringServer(defaultPricingConfig(), talos, discardLogger())
+	s := newMeteringServer(defaultPricingConfig(), talos, newDebitEnqueuer(discardLogger()), discardLogger())
 
 	leakSpan := &tracev1.Span{
 		TraceId: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
@@ -186,7 +186,7 @@ func TestExportCountsRevenueLeak(t *testing.T) {
 
 func TestExportEmptyRequest(t *testing.T) {
 	talos := &TalosIngestClient{BaseURL: "http://127.0.0.1:0", HTTP: &http.Client{}}
-	s := newMeteringServer(defaultPricingConfig(), talos, discardLogger())
+	s := newMeteringServer(defaultPricingConfig(), talos, newDebitEnqueuer(discardLogger()), discardLogger())
 	if _, err := s.Export(context.Background(), &otlpcollectortrace.ExportTraceServiceRequest{}); err != nil {
 		t.Fatalf("empty Export must not error: %v", err)
 	}
