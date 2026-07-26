@@ -1,0 +1,31 @@
+enqueue.go
+  s_85816c5405ca10::t_dd027604b07e01 60,65
+  s_85816c5405ca10::t_5a7f822292c5da 40-42
+  s_85816c5405ca10::t_6db10879641fb7 14-15,27,29
+server.go
+  s_b6a3b3bff3e435::t_4493c3523bcac8 106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b11ff60c68d9e8b7197c50de1341ea9b74e0427b",
+  "prompts": {},
+  "sessions": {
+    "s_85816c5405ca10": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0630e016affegl7bLvPZOtm9mT",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    },
+    "s_b6a3b3bff3e435": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_062555b60ffevtG7Gv4CCIBuqi",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
