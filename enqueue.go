@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// debitEnqueuer forwards failed Talos debits to the hatchet-workers trigger
-// endpoint (POST {HATCHET_WORKERS_URL}/trigger/debit-retry) so they get durable
+// debitEnqueuer forwards failed Talos debits to the egent-jobs trigger
+// endpoint (POST {EGENT_JOBS_URL}/trigger/debit-retry) so they get durable
 // retry instead of becoming permanent revenue leaks. It is fire-and-forget:
 // metering's OTLP export hot path must never block or fail because the retry
 // queue is unreachable.
@@ -24,9 +24,9 @@ type debitEnqueuer struct {
 }
 
 func newDebitEnqueuer(log *slog.Logger) *debitEnqueuer {
-	base := strings.TrimRight(os.Getenv("HATCHET_WORKERS_URL"), "/")
+	base := strings.TrimRight(os.Getenv("EGENT_JOBS_URL"), "/")
 	if base == "" {
-		log.Info("debit retry enqueuer disabled (set HATCHET_WORKERS_URL to enable)")
+		log.Info("debit retry enqueuer disabled (set EGENT_JOBS_URL to enable)")
 		return &debitEnqueuer{log: log}
 	}
 	return &debitEnqueuer{
@@ -37,9 +37,9 @@ func newDebitEnqueuer(log *slog.Logger) *debitEnqueuer {
 	}
 }
 
-// enqueueDebit hands a failed debit to hatchet-workers for durable retry. The
-// ingest payload already uses the camelCase JSON shape hatchet-workers'
-// DebitInput expects (actorId/requestId/...). Best-effort: errors are logged,
+// enqueueDebit hands a failed debit to egent-jobs for durable retry. The
+// ingest payload already uses the camelCase JSON shape egent-jobs' debitretry
+// Args expects (actorId/requestId/...). Best-effort: errors are logged,
 // never propagated.
 func (e *debitEnqueuer) enqueueDebit(req ingestRequest) {
 	if !e.enabled {
@@ -57,12 +57,12 @@ func (e *debitEnqueuer) enqueueDebit(req ingestRequest) {
 		httpReq.Header.Set("Content-Type", "application/json")
 		resp, err := e.hc.Do(httpReq)
 		if err != nil {
-			e.log.Warn("debit enqueue: post failed (hatchet-workers unreachable?)", "requestId", req.RequestID, "error", err)
+			e.log.Warn("debit enqueue: post failed (egent-jobs unreachable?)", "requestId", req.RequestID, "error", err)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusAccepted {
-			e.log.Warn("debit enqueue: non-202 from hatchet-workers", "status", resp.StatusCode, "requestId", req.RequestID)
+			e.log.Warn("debit enqueue: non-202 from egent-jobs", "status", resp.StatusCode, "requestId", req.RequestID)
 			return
 		}
 		e.log.Info("debit enqueued for durable retry", "requestId", req.RequestID, "actorId", req.ActorID)

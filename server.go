@@ -103,7 +103,7 @@ func (s *meteringServer) handleSpan(ctx context.Context, span *tracev1.Span) {
 	})
 	if err != nil {
 		s.debitErrors.Add(1)
-		// Hand the failed debit to hatchet-workers for durable retry instead of
+		// Hand the failed debit to egent-jobs for durable retry instead of
 		// leaking it. Talos is idempotent on requestId, so retries are safe.
 		if s.enqueuer != nil {
 			s.enqueuer.enqueueDebit(ingestRequest{
