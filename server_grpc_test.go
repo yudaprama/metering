@@ -2,11 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"io"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -23,17 +19,10 @@ import (
 // cannot (server_test.go covers the in-process logic).
 func TestExportOverGRPCWire(t *testing.T) {
 	var received ingestRequest
-	talosStub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(body, &received)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"balanceRemaining":123,"balanceQuota":0,"accepted":true}`))
-	}))
-	t.Cleanup(talosStub.Close)
+	stub := talosStub(t, &received, `{"balanceRemaining":123,"balanceQuota":0,"accepted":true}`)
 
 	pricing := PricingConfig{Default: ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5}}
-	talos := &TalosIngestClient{BaseURL: talosStub.URL, HTTP: talosStub.Client()}
+	talos := &TalosIngestClient{BaseURL: stub.URL, HTTP: stub.Client()}
 	srv := newMeteringServer(pricing, talos, newDebitEnqueuer(discardLogger()), discardLogger())
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

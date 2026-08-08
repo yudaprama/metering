@@ -18,6 +18,21 @@ func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+func talosStub(t *testing.T, received *ingestRequest, respBody string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if received != nil {
+			_ = json.Unmarshal(body, received)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(respBody))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 func makeReq(spans ...*tracev1.Span) *otlpcollectortrace.ExportTraceServiceRequest {
 	return &otlpcollectortrace.ExportTraceServiceRequest{
 		ResourceSpans: []*tracev1.ResourceSpans{
@@ -32,14 +47,7 @@ func makeReq(spans ...*tracev1.Span) *otlpcollectortrace.ExportTraceServiceReque
 
 func TestExportBillsBillableSpanOnly(t *testing.T) {
 	var received ingestRequest
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(body, &received)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"balanceRemaining":99,"balanceQuota":0,"accepted":true}`))
-	}))
-	t.Cleanup(srv.Close)
+	srv := talosStub(t, &received, `{"balanceRemaining":99,"balanceQuota":0,"accepted":true}`)
 
 	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
 	pricing := PricingConfig{Default: ModelPricing{InputPerMillion: 5.0, OutputPerMillion: 15.0, CacheDiscount: 0.5}}
@@ -111,12 +119,7 @@ func TestExportNeverErrorsOnDebitFailure(t *testing.T) {
 }
 
 func TestExportDedupsCounted(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"balanceRemaining":0,"balanceQuota":0,"accepted":false}`))
-	}))
-	t.Cleanup(srv.Close)
+	srv := talosStub(t, nil, `{"balanceRemaining":0,"balanceQuota":0,"accepted":false}`)
 
 	talos := &TalosIngestClient{BaseURL: srv.URL, HTTP: srv.Client()}
 	s := newMeteringServer(defaultPricingConfig(), talos, newDebitEnqueuer(discardLogger()), discardLogger())

@@ -19,6 +19,17 @@ func kv(k string, v *commonv1.AnyValue) *commonv1.KeyValue {
 	return &commonv1.KeyValue{Key: k, Value: v}
 }
 
+func basicSpan(actor, model string) *tracev1.Span {
+	return &tracev1.Span{
+		TraceId: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanId:  []byte{17, 18, 19, 20, 21, 22, 23, 24},
+		Attributes: []*commonv1.KeyValue{
+			kv(attrActorID, strVal(actor)),
+			kv(attrModel, strVal(model)),
+		},
+	}
+}
+
 func billableSpan(actor, model string, prompt, completion, total, cached int64) *tracev1.Span {
 	attrs := []*commonv1.KeyValue{
 		kv(attrActorID, strVal(actor)),
@@ -100,30 +111,15 @@ func TestExtractEventSkipsMissingModel(t *testing.T) {
 
 func TestExtractEventSkipsNoTokens(t *testing.T) {
 	// Span with actor+model but zero token attributes -> not billable.
-	span := &tracev1.Span{
-		TraceId: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-		SpanId:  []byte{17, 18, 19, 20, 21, 22, 23, 24},
-		Attributes: []*commonv1.KeyValue{
-			kv(attrActorID, strVal("actor")),
-			kv(attrModel, strVal("gpt-4")),
-		},
-	}
-	if _, ok := extractEvent(span); ok {
+	if _, ok := extractEvent(basicSpan("actor", "gpt-4")); ok {
 		t.Fatal("must skip spans with no token signal")
 	}
 }
 
 func TestExtractEventTotalOnlyFallback(t *testing.T) {
 	// Only total_tokens reported: treat as prompt (charged at input rate).
-	span := &tracev1.Span{
-		TraceId: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-		SpanId:  []byte{17, 18, 19, 20, 21, 22, 23, 24},
-		Attributes: []*commonv1.KeyValue{
-			kv(attrActorID, strVal("actor")),
-			kv(attrModel, strVal("gpt-4")),
-			kv(attrTotalTokens, intVal(333)),
-		},
-	}
+	span := basicSpan("actor", "gpt-4")
+	span.Attributes = append(span.Attributes, kv(attrTotalTokens, intVal(333)))
 	ev, ok := extractEvent(span)
 	if !ok {
 		t.Fatal("expected total-only span to be billable")
