@@ -19,14 +19,21 @@ use tracing_subscriber::EnvFilter;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
-#[command(name = "metering", about = "OTLP/gRPC billing consumer for Plano metering")]
+#[command(
+    name = "metering",
+    about = "OTLP/gRPC billing consumer for Plano metering"
+)]
 struct Args {
     /// Print version and exit
     #[arg(long)]
     version: bool,
 
     /// OTLP/gRPC trace receiver listen address
-    #[arg(long, default_value = "127.0.0.1:4319", env = "METERING_OTLP_GRPC_ADDR")]
+    #[arg(
+        long,
+        default_value = "127.0.0.1:4319",
+        env = "METERING_OTLP_GRPC_ADDR"
+    )]
     otlp_addr: SocketAddr,
 
     /// Healthz HTTP listen address
@@ -150,10 +157,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(body) {
                         // Extract spans from JSON (simplified parsing)
                         if let Some(spans) = json.get("spans").and_then(|s| s.as_array()) {
-                            let otel_spans: Vec<extract::Span> = spans
-                                .iter()
-                                .filter_map(|s| parse_otlp_span(s))
-                                .collect();
+                            let otel_spans: Vec<extract::Span> =
+                                spans.iter().filter_map(parse_otlp_span).collect();
                             srv.export(otel_spans).await;
                         }
                     }

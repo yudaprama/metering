@@ -196,8 +196,8 @@ pub fn load_pricing_config() -> PricingConfig {
         }
     }
 
-    let plano_path = env::var("METERING_PLANO_CONFIG")
-        .unwrap_or_else(|_| "plano_config.yaml".to_string());
+    let plano_path =
+        env::var("METERING_PLANO_CONFIG").unwrap_or_else(|_| "plano_config.yaml".to_string());
 
     if let Some(c) = load_plano_billing(&plano_path) {
         return c;

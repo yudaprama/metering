@@ -8,6 +8,7 @@ use tracing::{info, warn};
 /// DebitEnqueuer forwards failed Talos debits to the egent-jobs trigger
 /// endpoint for durable retry. It is fire-and-forget.
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct DebitEnqueuer {
     url: String,
     http: Client,

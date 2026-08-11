@@ -65,6 +65,7 @@ struct IngestResponse {
 
 /// IngestResult reports the outcome of a debit.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct IngestResult {
     pub accepted: bool,
     pub balance_remaining: i64,
@@ -76,8 +77,7 @@ pub struct IngestResult {
 impl TalosIngestClient {
     /// Ingest records usage and debits the balance.
     pub async fn ingest(&self, req: &IngestRequest) -> Result<IngestResult, String> {
-        let body = serde_json::to_vec(req)
-            .map_err(|e| format!("marshal ingest request: {e}"))?;
+        let body = serde_json::to_vec(req).map_err(|e| format!("marshal ingest request: {e}"))?;
 
         let url = format!("{}{}", self.base_url, TALOS_INGEST_PATH);
         let mut builder = self
@@ -86,10 +86,7 @@ impl TalosIngestClient {
             .header("Content-Type", "application/json");
 
         if !self.admin_token.is_empty() {
-            builder = builder.header(
-                "Authorization",
-                format!("Bearer {}", self.admin_token),
-            );
+            builder = builder.header("Authorization", format!("Bearer {}", self.admin_token));
         }
 
         let resp = builder

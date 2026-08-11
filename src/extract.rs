@@ -60,6 +60,7 @@ pub struct KeyValue {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Span {
     pub trace_id: Vec<u8>,
     pub span_id: Vec<u8>,
@@ -212,22 +213,47 @@ pub fn span_leak(span: &Span) -> Option<LeakInfo> {
 mod tests {
     use super::*;
 
-    fn billable_span(actor: &str, model: &str, prompt: i64, completion: i64, total: i64, cached: i64) -> Span {
+    fn billable_span(
+        actor: &str,
+        model: &str,
+        prompt: i64,
+        completion: i64,
+        total: i64,
+        cached: i64,
+    ) -> Span {
         let mut attrs = vec![
-            KeyValue { key: ATTR_ACTOR_ID.to_string(), value: Some(AnyValue::string_value(actor)) },
-            KeyValue { key: ATTR_MODEL.to_string(), value: Some(AnyValue::string_value(model)) },
+            KeyValue {
+                key: ATTR_ACTOR_ID.to_string(),
+                value: Some(AnyValue::string_value(actor)),
+            },
+            KeyValue {
+                key: ATTR_MODEL.to_string(),
+                value: Some(AnyValue::string_value(model)),
+            },
         ];
         if prompt != 0 {
-            attrs.push(KeyValue { key: ATTR_PROMPT_TOKENS.to_string(), value: Some(AnyValue::int_value(prompt)) });
+            attrs.push(KeyValue {
+                key: ATTR_PROMPT_TOKENS.to_string(),
+                value: Some(AnyValue::int_value(prompt)),
+            });
         }
         if completion != 0 {
-            attrs.push(KeyValue { key: ATTR_COMPLETION_TOKENS.to_string(), value: Some(AnyValue::int_value(completion)) });
+            attrs.push(KeyValue {
+                key: ATTR_COMPLETION_TOKENS.to_string(),
+                value: Some(AnyValue::int_value(completion)),
+            });
         }
         if total != 0 {
-            attrs.push(KeyValue { key: ATTR_TOTAL_TOKENS.to_string(), value: Some(AnyValue::int_value(total)) });
+            attrs.push(KeyValue {
+                key: ATTR_TOTAL_TOKENS.to_string(),
+                value: Some(AnyValue::int_value(total)),
+            });
         }
         if cached != 0 {
-            attrs.push(KeyValue { key: ATTR_CACHED_TOKENS.to_string(), value: Some(AnyValue::int_value(cached)) });
+            attrs.push(KeyValue {
+                key: ATTR_CACHED_TOKENS.to_string(),
+                value: Some(AnyValue::int_value(cached)),
+            });
         }
         Span {
             trace_id: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
@@ -286,8 +312,14 @@ mod tests {
             span_id: vec![17, 18, 19, 20, 21, 22, 23, 24],
             name: String::new(),
             attributes: vec![
-                KeyValue { key: ATTR_ACTOR_ID.to_string(), value: Some(AnyValue::string_value("actor")) },
-                KeyValue { key: ATTR_MODEL.to_string(), value: Some(AnyValue::string_value("gpt-4")) },
+                KeyValue {
+                    key: ATTR_ACTOR_ID.to_string(),
+                    value: Some(AnyValue::string_value("actor")),
+                },
+                KeyValue {
+                    key: ATTR_MODEL.to_string(),
+                    value: Some(AnyValue::string_value("gpt-4")),
+                },
             ],
         };
         assert!(extract_event(&span).is_none());
@@ -296,7 +328,10 @@ mod tests {
     #[test]
     fn test_extract_event_total_only_fallback() {
         let mut span = billable_span("actor", "gpt-4", 0, 0, 0, 0);
-        span.attributes.push(KeyValue { key: ATTR_TOTAL_TOKENS.to_string(), value: Some(AnyValue::int_value(333)) });
+        span.attributes.push(KeyValue {
+            key: ATTR_TOTAL_TOKENS.to_string(),
+            value: Some(AnyValue::int_value(333)),
+        });
         let ev = extract_event(&span).expect("expected total-only span to be billable");
         assert_eq!(ev.usage.prompt_tokens, 333);
     }
@@ -320,8 +355,14 @@ mod tests {
             span_id: vec![],
             name: String::new(),
             attributes: vec![
-                KeyValue { key: ATTR_ACTOR_ID.to_string(), value: Some(AnyValue::string_value("a")) },
-                KeyValue { key: ATTR_MODEL.to_string(), value: Some(AnyValue::string_value("gpt-4")) },
+                KeyValue {
+                    key: ATTR_ACTOR_ID.to_string(),
+                    value: Some(AnyValue::string_value("a")),
+                },
+                KeyValue {
+                    key: ATTR_MODEL.to_string(),
+                    value: Some(AnyValue::string_value("gpt-4")),
+                },
             ],
         };
         let info = span_leak(&no_tokens).unwrap();
