@@ -10,64 +10,54 @@ permissions:
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../metering-${{ github.ref_name }}-${{ matrix.target }}.tar.gz metering
+          cd ../../..
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: metering-${{ matrix.target }}
+          path: metering-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          go-version: 1.26.4
-
-      - name: Run tests
-        run: go test ./...
-
-      - name: Build Linux binary
-        run: |
-          mkdir -p dist
-          GOOS=linux GOARCH=amd64 go build -o dist/metering-linux-amd64 ./...
-
-      - name: Build macOS amd64 binary
-        run: |
-          GOOS=darwin GOARCH=amd64 go build -o dist/metering-darwin-amd64 ./...
-
-      - name: Build macOS arm64 binary
-        run: |
-          GOOS=darwin GOARCH=arm64 go build -o dist/metering-darwin-arm64 ./...
-
+          path: artifacts
+          merge-multiple: true
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{github.run_number}}
-          name: Release v${{github.run_number}}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Linux binary
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{github.run_number}}
-          files: dist/metering-linux-amd64
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS amd64 binary
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{github.run_number}}
-          files: dist/metering-darwin-amd64
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS arm64 binary
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{github.run_number}}
-          files: dist/metering-darwin-arm64
+          files: artifacts/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

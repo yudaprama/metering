@@ -1,0 +1,26 @@
+[package]
+name = "metering"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "metering"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tonic = "0.12"
+prost = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+sha2 = "0.10"
+hex = "0.4"
+clap = { version = "4", features = ["derive", "env"] }
+parking_lot = "0.12"
+
+[build-dependencies]
+tonic-build = "0.12"
